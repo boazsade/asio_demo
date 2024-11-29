@@ -11,7 +11,7 @@
 #include <ranges>
 #include <boost/asio.hpp>
 #include <boost/asio/experimental/parallel_group.hpp>
-
+#ifdef USE_ASYNC_MULTI_WAIT
 namespace asio = boost::asio;
 using asio::ip::tcp;
 auto async_post(auto executor, auto op, auto&& token) {
@@ -80,7 +80,7 @@ auto test_multi(const char* host, const char* port, const char* resource, boost:
     }
     return 0;
 }
-
+#endif	// USE_ASYNC_MULTI_WAIT
 int main(int argc, char* argv[]) {
   if (argc != 4) {
     std::cout << "Usage: sync_client <server> <port> <path>\n";
@@ -91,24 +91,24 @@ int main(int argc, char* argv[]) {
 
   try {
       
-      return async::multi_connect(argv[1], argv[2], argv[3], 2);
+      return comm::multi_connect(argv[1], argv[2], argv[3], 2);
 
       boost::asio::io_context io_context;
-      if (argc == 0) {
+#ifdef USE_ASYNC_MULTI_WAIT      
       if (test_multi(argv[1], argv[2], argv[3], io_context) < 0) {
         std::cerr << "failed to run in parallel, exiting..\n";
         return -1;
       }
-      }
-      auto socket{sync::connect(argv[1], argv[2], io_context)};
+#endif      
+      auto socket{comm::connect(argv[1], argv[2], io_context)};
       if (!socket) {
         return -1;
       }
-      if (!sync::send_request(*socket, argv[1], argv[3])) {
+      if (!comm::send_request(*socket, argv[1], argv[3])) {
         std::cerr << "failed to send request '" << argv[3] << "'\n";
         return -1;
       }
-      if (auto response = sync::handle_response(*socket); response)  {
+      if (auto response = comm::handle_response(*socket); response)  {
         std::cout << "The response from the server:\n" << *response << "\n";
         return 0;
       } else {

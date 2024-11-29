@@ -1,9 +1,8 @@
 #include "sync_client.hh"
+#include "network_fwd.hh"
+#include <iostream>
 
-namespace asio = boost::asio;
-using asio::ip::tcp;
-
-namespace sync {
+namespace comm {
 auto connect(const char* to, const char* port, boost::asio::io_context& ctx) -> std::optional<tcp::socket> {
     if (!(to && port)) {
       std::cerr << "we have null points " << std::boolalpha << (to == nullptr) << ", " << (port == nullptr) << std::endl;

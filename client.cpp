@@ -1,4 +1,5 @@
 #include "client.hh"
+#include "network_fwd.hh"
 #include <iostream>
 #include <istream>
 #include <ostream>
@@ -8,25 +9,11 @@
 #include <optional>
 #include <sstream>
 #include <ranges>
-#include <boost/asio.hpp>
-#include <boost/asio/experimental/parallel_group.hpp>
-#include <boost/asio/experimental/awaitable_operators.hpp>
-#include <boost/asio/co_spawn.hpp>
-#include <boost/asio/deferred.hpp>
-#include <boost/asio/detached.hpp>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/signal_set.hpp>
-#include <boost/asio/write.hpp>
-#include <boost/asio/as_tuple.hpp>
-#include <boost/asio/awaitable.hpp>
 #include <boost/algorithm/string.hpp>
 
 
-namespace async {
+namespace comm {
 namespace {
-namespace asio = boost::asio;
-using asio::ip::tcp;
 using asio::awaitable;
 using asio::co_spawn;
 using asio::detached;
@@ -35,10 +22,6 @@ using tcp_acceptor = default_token::as_default_on_t<tcp::acceptor>;
 using tcp_socket = default_token::as_default_on_t<tcp::socket>;
 namespace this_coro = asio::this_coro;
 using asio::use_awaitable;
-
-
-static std::atomic_int tid_gen = 0;
-thread_local int const tid     = ++tid_gen;
 
 static constexpr auto parse_len = [](const std::string& headers) {
     std::string entry;
@@ -229,3 +212,5 @@ auto multi_connect(const std::string& host, const std::string& port, const std::
   std::cout << "going out after " << i << " iterations" << std::endl;
   return 1;
 }
+
+}	// end of comm namespace
