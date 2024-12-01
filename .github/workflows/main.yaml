@@ -1,0 +1,32 @@
+name: Http Monitoring PR FLow 
+
+on:
+    pull_request:
+      branches:
+      - main
+permissions: write-all
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                container: ["ubuntu-latest-dev:latest"]
+                build-type: [debug, release]
+                compiler: [{ cxx: g++, c: gcc }]
+        timeout-minutes: 60
+        container:
+            image: ghcr.io/boazsade/${{ matrix.container }}
+            credentials:
+              username: ${{ github.repository_owner }}
+              password: ${{ secrets.GITHUB_TOKEN }}
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                submodules: true
+            - name: Build
+              run: |
+                conan install . -s build_type=${build-type}
+                cmake --preset conan-${build-type}
+                cmake --build --preset conan-${build-type}
