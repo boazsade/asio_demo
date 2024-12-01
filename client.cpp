@@ -100,6 +100,65 @@ auto async_read_title(tcp::socket& socket, std::string& input) -> awaitable<bool
     co_return false;
 }
 
+auto async_clinets(std::string host, std::string port, std::string resource, asio::io_context& ctx) -> awaitable<void> {
+  using namespace boost::asio::experimental::awaitable_operators;
+
+  auto executor = co_await this_coro::executor;
+  const auto [client1, client2] = co_await (
+        co_spawn(executor, async_http_client(host, port, resource), use_awaitable) &&
+        co_spawn(executor, async_http_client(host, port, resource), use_awaitable)
+  );
+  std::cout << "successfully finish waiting for the client to come with an answer:\n";
+  std::cout << "First client:\n" << client1 << "\n--------------------------\n";
+  std::cout << "Second client:\n" << client2 << "\n--------------------------\n";
+  ctx.stop();
+  co_return;
+
+}
+
+}		// end of local namespace
+
+auto async_http_connect_client(std::string host, std::string port, std::string resource) -> asio::awaitable<std::string> {
+  auto executor = co_await this_coro::executor;
+  tcp::resolver r(executor);
+  tcp::resolver::query q(host, port);
+  tcp::socket s(executor);
+  auto [e, res] = co_await r.async_resolve(q, boost::asio::as_tuple(boost::asio::use_awaitable));
+  if (e) {
+    std::cerr << "failed to resolve " << host << ":" << port << "\n";
+    co_return std::string{};
+  }
+  co_await boost::asio::async_connect(s, res, boost::asio::use_awaitable);
+  co_return co_await async_send_read(s, host, resource);
+
+}
+
+auto async_http_client(std::string host, std::string port, std::string resource) -> awaitable<std::string> {
+  auto executor = co_await this_coro::executor;
+  std::cout << "trying to collect and read from client " << host << ":" << port <<std::endl;
+  auto make_connection = [executor](auto& host, auto& port) -> std::optional<tcp::socket>{
+    tcp::resolver resolver(executor);
+    tcp::resolver::query query(host, port);
+    tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+    tcp::socket socket(executor);
+    boost::system::error_code ec;
+    boost::asio::connect(socket, endpoint_iterator, ec);
+    if (!ec) {
+      return std::optional<tcp::socket>(std::move(socket));
+    }
+    return std::nullopt;
+  };
+
+  if (auto socket = make_connection(host, port); socket) {
+    auto r = co_await async_send_read(*socket, host, resource);
+    //std::cout << "client successfully read " << r.size() << " message" <<std::endl;
+    co_return r;
+  } else {
+    std::cerr << "failed to connect to remote server " << host << ":" << port << "\n";
+  }
+  co_return std::string{};
+}
+
 auto async_send_read(tcp::socket& socket, const std::string& host, const std::string& resource) -> awaitable<std::string> {
     using namespace std::string_literals;
 
@@ -145,71 +204,13 @@ auto async_send_read(tcp::socket& socket, const std::string& host, const std::st
     co_return "error"s;
 }
 
-auto async_http_client(std::string host, std::string port, std::string resource) -> awaitable<std::string> {
-  auto executor = co_await this_coro::executor;
-  std::cout << "trying to collect and read from client " << host << ":" << port <<std::endl;
-  auto make_connection = [executor](auto& host, auto& port) -> std::optional<tcp::socket>{
-    tcp::resolver resolver(executor);
-    tcp::resolver::query query(host, port);
-    tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-    tcp::socket socket(executor);
-    boost::system::error_code ec;
-    boost::asio::connect(socket, endpoint_iterator, ec);
-    if (!ec) {
-      return std::optional<tcp::socket>(std::move(socket));
-    }
-    return std::nullopt;
-  };
-
-  if (auto socket = make_connection(host, port); socket) {
-    auto r = co_await async_send_read(*socket, host, resource);
-    //std::cout << "client successfully read " << r.size() << " message" <<std::endl;
-    co_return r;
-  } else {
-    std::cerr << "failed to connect to remote server " << host << ":" << port << "\n";
-  }
-  co_return std::string{};
-}
-
-auto async_clinets(std::string host, std::string port, std::string resource) -> awaitable<void> {
-  using namespace boost::asio::experimental::awaitable_operators;
-
-  auto executor = co_await this_coro::executor;
-  const auto [client1, client2] = co_await (
-        co_spawn(executor, async_http_client(host, port, resource), use_awaitable) &&
-        co_spawn(executor, async_http_client(host, port, resource), use_awaitable)
-  );
-  std::cout << "successfully finish waiting for the client to come with an answer:\n";
-  std::cout << "First client:\n" << client1 << "\n--------------------------\n";
-  std::cout << "Second client:\n" << client2 << "\n--------------------------\n";
-  co_return;
-
-}
-
-}		// end of local namespace
-
 auto multi_connect(const std::string& host, const std::string& port, const std::string& resource, std::size_t count) -> int {
 
   asio::io_context ctx;
-  static constexpr auto JOBS{2};
-  static constexpr auto EXECUTERS{3};
-  static constexpr auto WAITS_DEPTH{JOBS * EXECUTERS + 1};
-
   auto work = boost::asio::make_work_guard(ctx);
-  co_spawn(ctx, async_clinets(host, port, resource), boost::asio::detached);
-  int i{0};
-  while (i < WAITS_DEPTH) {
-    auto c =  ctx.run_one();
-    if (c) {
-      i++;
-      std::cout << std::endl << "##### we are at iteration number " << i << std::endl;
-    } else {
-      std::cout << "we did not have any execution, so we will break out" <<std::endl;
-      break;
-    }
-    // so that we will not get stuck
-  }
-  std::cout << "going out after " << i << " iterations" << std::endl;
+  co_spawn(ctx, async_clinets(host, port, resource, ctx), boost::asio::detached);
+
+  ctx.run();
   return 1;
 }
 
