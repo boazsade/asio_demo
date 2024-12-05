@@ -1,4 +1,4 @@
-#include "client.hh"
+#include "async_client.hh"
 #include "sync_client.hh"
 #include <iostream>
 #include <istream>
@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
 
   try {
       
-      return comm::multi_connect(argv[1], argv[2], argv[3], 2);
+      return comm::test_multi_connect(argv[1], argv[2], argv[3], 2);
 
       boost::asio::io_context io_context;
 #ifdef USE_ASYNC_MULTI_WAIT      
@@ -104,11 +104,11 @@ int main(int argc, char* argv[]) {
       if (!socket) {
         return -1;
       }
-      if (!comm::send_request(*socket, argv[1], argv[3])) {
+      if (!comm::http_send_request(*socket, argv[1], argv[3])) {
         std::cerr << "failed to send request '" << argv[3] << "'\n";
         return -1;
       }
-      if (auto response = comm::handle_response(*socket); response)  {
+      if (auto response = comm::http_handle_response(*socket); response)  {
         std::cout << "The response from the server:\n" << *response << "\n";
         return 0;
       } else {

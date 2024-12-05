@@ -1,17 +1,20 @@
 cmake_minimum_required(VERSION 3.23.0)
-project(http_client LANGUAGES C CXX)
-file(GLOB src_files *.cpp *.h *.hh *.cc)
+project(boost_asio_client LANGUAGES C CXX)
 include_directories("${PROJECT_BINARY_DIR}")
-add_executable(${PROJECT_NAME} ${src_files})
+
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 20)
 
 find_package(Boost REQUIRED)
+find_package(glog REQUIRED)
 message("------------------------- Our boost is found at ${Boost_INCLUDE_DIRS} --------------------------")
 include_directories(${Boost_INCLUDE_DIRS} SYSTEM)
-target_compile_definitions(${PROJECT_NAME} PUBLIC AppName="${PROJECT_NAME}")
-
+#target_include_directories(${PROJECT_NAME} PUBLIC .)
+#target_compile_definitions(${PROJECT_NAME} PUBLIC AppName="${PROJECT_NAME}")
+add_subdirectory(log)
+add_subdirectory(client)
+add_subdirectory(examples)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 include(CPack)
